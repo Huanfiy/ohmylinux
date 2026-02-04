@@ -1,0 +1,24 @@
+[submodule "libraries/oh-my-zsh"]
+	path = libraries/oh-my-zsh
+	url = https://github.com/ohmyzsh/ohmyzsh.git
+	branch = master
+
+[submodule "libraries/powerlevel10k"]
+	path = libraries/powerlevel10k
+	url = https://github.com/romkatv/powerlevel10k.git
+	branch = master
+
+[submodule "libraries/zsh-autosuggestions"]
+	path = libraries/zsh-autosuggestions
+	url = https://github.com/zsh-users/zsh-autosuggestions.git
+	branch = master
+
+[submodule "libraries/zsh-syntax-highlighting"]
+	path = libraries/zsh-syntax-highlighting
+	url = https://github.com/zsh-users/zsh-syntax-highlighting.git
+	branch = master
+
+[submodule "libraries/oh-my-tmux"]
+	path = libraries/oh-my-tmux
+	url = https://github.com/gpakosz/.tmux.git
+	branch = master

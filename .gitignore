@@ -1,0 +1,10 @@
+dist/
+.staging/
+.tmp/
+
+# Editor/OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
