@@ -1,6 +1,8 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Huanfiy/oh-my-terminal/blob/main/LICENSE)
+
 # newpc_u22 — Linux 新机离线终端环境包
 
-这是一个用于 Linux 新机的离线环境配置包，目标是快速搭建舒适的终端开发环境：**Zsh + Oh My Zsh + Powerlevel10k + 常用插件 + Tmux + Oh My Tmux**，并附带推荐字体。
+这是一个用于 Linux 新机的离线环境配置包，目标是快速搭建舒适的终端开发环境：**Zsh + Oh My Zsh + Powerlevel10k + 常用插件 + Tmux + Oh My Tmux**，并附带推荐[...
 
 ## 📦 包含组件
 
@@ -37,7 +39,7 @@
 ```
 
 说明：
-- `run.sh create` 会在打包时**临时拉取**最新版 Oh My Zsh 安装脚本，并写入离线包内的 `resources/omz_install.sh`（无网络则使用 `libraries/oh-my-zsh/tools/install.sh` 作为回退）。
+- `run.sh create` 会在打包时**临时拉取**最新版 Oh My Zsh 安装脚本，并写入离线包内的 `resources/omz_install.sh`（无网络则使用 `libraries/oh-my-zsh/tools/install.sh` [...]
 - `install_offline.sh` 会优先使用 `resources/omz_install.sh` 生成 `.zshrc`，若不可用则回退到模板生成。
 
 ## 🛠️ 离线包使用方式（给新机器）
@@ -86,4 +88,8 @@ git submodule update --init --recursive
 
 ## 📄 许可证
 
-本项目脚本及其包含的各开源项目遵循各自的许可证。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Huanfiy/oh-my-terminal/blob/main/LICENSE)
+
+本仓库及其主导的脚本采用 MIT 许可证。
+
+本项目包含的子模块/第三方组件各自遵循其各自的许可证。有关本仓库的完整许可条款，请参阅项目根目录的 LICENSE 文件.
