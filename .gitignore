@@ -2,6 +2,9 @@ dist/
 .staging/
 .tmp/
 
+# run.sh create 下载缓存的词库资源，不入库
+resources/rime-ice-*.zip
+
 # Editor/OS
 .vscode/
 .idea/

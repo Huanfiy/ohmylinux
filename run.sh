@@ -1,34 +1,30 @@
 #!/usr/bin/env bash
+#
+# oh-my-linux 维护脚本：更新子模块 / 生成离线安装包
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PKG_BASENAME="newpc_u22"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+PKG_BASENAME="oh-my-linux"
 OMZ_INSTALL_URL="https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
 
-die() {
-  echo "ERROR: $*" >&2
-  exit 1
-}
-
-warn() {
-  echo "WARN: $*" >&2
-}
-
 need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "缺少命令：$1"
+  command_exists "$1" || die "缺少命令：$1"
 }
 
 usage() {
   cat <<'EOF'
-Usage:
+用法:
   ./run.sh update
   ./run.sh create
 
-Commands:
+命令:
   update   更新子模块仓库（会拉取远端最新提交，并更新本地子模块指针）
-  create   生成离线包：dist/newpc_u22_YYYYMMDD.tar.gz
+  create   生成离线包：dist/oh-my-linux_YYYYMMDD.tar.gz
 EOF
 }
 
@@ -41,17 +37,17 @@ do_update() {
   git submodule sync --recursive
   git submodule update --init --recursive
 
-  echo "正在拉取子模块远端更新..."
+  info "正在拉取子模块远端更新..."
   git submodule update --remote --merge --recursive
 
   echo ""
-  echo "update 完成。若子模块指针有变化，请在主仓库中自行提交更新。"
+  info "update 完成。若子模块指针有变化，请在主仓库中自行提交更新。"
 }
 
 fetch_omz_install_script() {
   local out_path="$1"
 
-  if command -v curl >/dev/null 2>&1; then
+  if command_exists curl; then
     if curl -fsSL "$OMZ_INSTALL_URL" -o "$out_path"; then
       return 0
     fi
@@ -63,6 +59,30 @@ fetch_omz_install_script() {
   local fallback="$SCRIPT_DIR/libraries/oh-my-zsh/tools/install.sh"
   [ -f "$fallback" ] || die "回退脚本不存在：$fallback"
   cp -a "$fallback" "$out_path"
+}
+
+# 下载 rime-ice 词库 zip 到离线包资源目录（已存在则复用，失败仅告警：
+# 离线包仍可用于 zsh/tmux，fcitx5 脚本会在安装时回退为联网下载）
+fetch_rime_ice_zip() {
+  local out_path="$1"
+  local cached="$SCRIPT_DIR/resources/rime-ice-${OML_RIME_ICE_VERSION}.zip"
+
+  if [ -f "$cached" ]; then
+    info "复用已缓存的 rime-ice 资源：$cached"
+    cp -a "$cached" "$out_path"
+    return 0
+  fi
+
+  if command_exists curl; then
+    info "下载 rime-ice ${OML_RIME_ICE_VERSION}..."
+    if curl -fsSL "$OML_RIME_ICE_URL" -o "$out_path"; then
+      cp -a "$out_path" "$cached"
+      return 0
+    fi
+  fi
+
+  warn "rime-ice 下载失败或缺少 curl，离线包将不含 rime-ice（fcitx5 安装时需联网下载）"
+  rm -f "$out_path"
 }
 
 do_create() {
@@ -88,23 +108,29 @@ do_create() {
   mkdir -p "$staging_dir" "$dist_dir"
 
   # 拷贝必要文件/目录
-  cp -a "$SCRIPT_DIR/install_offline.sh" "$SCRIPT_DIR/run.sh" "$SCRIPT_DIR/README.md" "$staging_dir/"
+  cp -a "$SCRIPT_DIR/install_zsh_tmux.sh" "$SCRIPT_DIR/install_fcitx5_rime.sh" \
+    "$SCRIPT_DIR/run.sh" "$SCRIPT_DIR/README.md" "$staging_dir/"
+  cp -a "$SCRIPT_DIR/lib" "$staging_dir/"
   cp -a "$SCRIPT_DIR/resources" "$staging_dir/"
   cp -a "$SCRIPT_DIR/libraries" "$staging_dir/"
 
   # 离线包内不需要 VCS 元数据
-  find "$staging_dir/libraries" -type d -name .git -prune -exec rm -rf '{}' +
+  find "$staging_dir/libraries" -name .git -prune -exec rm -rf '{}' +
 
   # create 时临时拉取最新版 OMZ install.sh（无网络则回退到子模块内脚本）
   fetch_omz_install_script "$staging_dir/resources/omz_install.sh"
 
-  chmod +x "$staging_dir/install_offline.sh" "$staging_dir/run.sh" "$staging_dir/resources/omz_install.sh" || true
+  # 预下载 rime-ice 词库，使 fcitx5 安装脚本可完全离线执行
+  fetch_rime_ice_zip "$staging_dir/resources/rime-ice-${OML_RIME_ICE_VERSION}.zip"
+
+  chmod +x "$staging_dir/install_zsh_tmux.sh" "$staging_dir/install_fcitx5_rime.sh" \
+    "$staging_dir/run.sh" "$staging_dir/resources/omz_install.sh" || true
 
   # 打包（tar 内包含顶层目录）
   tar -C "$staging_parent" -czf "$out_tgz" "$pkg_dir_name"
 
   echo ""
-  echo "离线包已生成：$out_tgz"
+  success "离线包已生成：$out_tgz"
 }
 
 main() {
@@ -128,4 +154,3 @@ main() {
 }
 
 main "$@"
-
