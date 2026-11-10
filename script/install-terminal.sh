@@ -7,22 +7,22 @@
 # 特点：支持重入（中断后重新运行可继续安装）
 #
 # 用法：
-#   ./install_zsh_tmux.sh                # 交互安装
-#   ./install_zsh_tmux.sh --unattended   # 无人值守安装（CI/容器/批量部署）
+#   ./run.sh install terminal                # 交互安装
+#   ./run.sh install terminal --unattended   # 无人值守安装（CI/容器/批量部署）
 
 # 严格模式，但允许管道命令失败
 set -eo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROGRESS_FILE="$HOME/.oml_zsh_tmux_install_progress"
 LOG_FILE="$HOME/.oml_zsh_tmux_install.log"
 
-# shellcheck source=lib/common.sh
-source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=script/common.sh
+source "$ROOT_DIR/script/common.sh"
 
 usage() {
   cat <<'EOF'
-用法: ./install_zsh_tmux.sh [选项]
+用法: ./run.sh install terminal [选项]
 
 选项:
   -y, --unattended   无人值守模式：所有确认采用默认值（覆盖旧安装、设默认 shell）
@@ -55,14 +55,14 @@ parse_args() {
 # 检查本地材料是否齐全
 check_materials() {
   local missing_materials=()
-  local lib_dir="$SCRIPT_DIR/libraries"
-  local res_dir="$SCRIPT_DIR/resources"
+  local lib_dir="$ROOT_DIR/libraries"
+  local res_dir="$ROOT_DIR/resources"
 
-  [ -d "$lib_dir/oh-my-zsh" ] || missing_materials+=("Oh My Zsh 仓库")
-  [ -d "$lib_dir/powerlevel10k" ] || missing_materials+=("Powerlevel10k 主题")
-  [ -d "$lib_dir/zsh-autosuggestions" ] || missing_materials+=("zsh-autosuggestions 插件")
-  [ -d "$lib_dir/zsh-syntax-highlighting" ] || missing_materials+=("zsh-syntax-highlighting 插件")
-  [ -d "$lib_dir/oh-my-tmux" ] || missing_materials+=("Oh My Tmux 仓库")
+  [ -f "$lib_dir/oh-my-zsh/templates/zshrc.zsh-template" ] || missing_materials+=("Oh My Zsh 仓库")
+  [ -f "$lib_dir/powerlevel10k/powerlevel10k.zsh-theme" ] || missing_materials+=("Powerlevel10k 主题")
+  [ -f "$lib_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ] || missing_materials+=("zsh-autosuggestions 插件")
+  [ -f "$lib_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] || missing_materials+=("zsh-syntax-highlighting 插件")
+  [ -f "$lib_dir/oh-my-tmux/.tmux.conf" ] || missing_materials+=("Oh My Tmux 仓库")
   [ -f "$res_dir/MesloLGS NF Regular.ttf" ] || missing_materials+=("MesloLGS NF Regular.ttf 字体")
 
   if [ ${#missing_materials[@]} -gt 0 ]; then
@@ -190,7 +190,7 @@ install_oh_my_zsh() {
     fi
 
     info "从本地材料安装 Oh My Zsh"
-    copy_library "$SCRIPT_DIR/libraries/oh-my-zsh" "$ZSH_DIR"
+    copy_library "$ROOT_DIR/libraries/oh-my-zsh" "$ZSH_DIR"
 
     # 备份原有 .zshrc
     if [ -f "$HOME/.zshrc" ]; then
@@ -198,26 +198,10 @@ install_oh_my_zsh() {
       info "已备份原有的 .zshrc 文件"
     fi
 
-    # 生成 .zshrc（优先使用离线包内的安装脚本；其次使用子模块内脚本；最后回退到模板）
-    local omz_install_script=""
-    if [ -f "$SCRIPT_DIR/resources/omz_install.sh" ]; then
-      omz_install_script="$SCRIPT_DIR/resources/omz_install.sh"
-    elif [ -f "$SCRIPT_DIR/libraries/oh-my-zsh/tools/install.sh" ]; then
-      omz_install_script="$SCRIPT_DIR/libraries/oh-my-zsh/tools/install.sh"
-    fi
-
-    if [ -n "$omz_install_script" ]; then
-      info "使用脚本生成 .zshrc: $omz_install_script"
-      RUNZSH=no KEEP_ZSHRC=no ZSH="$ZSH_DIR" sh "$omz_install_script" --unattended || {
-        warn "安装脚本执行失败，使用模板生成 .zshrc"
-        cp "$ZSH_DIR/templates/zshrc.zsh-template" "$HOME/.zshrc"
-        sed -i "s|^export ZSH=.*|export ZSH=\"$ZSH_DIR\"|" "$HOME/.zshrc"
-      }
-    else
-      info "未找到 Oh My Zsh 安装脚本，使用模板生成 .zshrc"
-      cp "$ZSH_DIR/templates/zshrc.zsh-template" "$HOME/.zshrc"
-      sed -i "s|^export ZSH=.*|export ZSH=\"$ZSH_DIR\"|" "$HOME/.zshrc"
-    fi
+    # 已从本地复制 Oh My Zsh，直接使用同版本模板，无需再次执行官方联网安装器。
+    info "从本地模板生成 .zshrc"
+    cp "$ZSH_DIR/templates/zshrc.zsh-template" "$HOME/.zshrc"
+    sed -i "s|^export ZSH=.*|export ZSH=\"$ZSH_DIR\"|" "$HOME/.zshrc"
     mark_step_done "install_oh_my_zsh"
     step_done "Oh My Zsh 安装"
   fi
@@ -259,16 +243,16 @@ install_powerlevel10k() {
     fi
 
     info "从本地材料安装 Powerlevel10k 主题"
-    copy_library "$SCRIPT_DIR/libraries/powerlevel10k" "$THEME_DIR"
+    copy_library "$ROOT_DIR/libraries/powerlevel10k" "$THEME_DIR"
 
     # 设置主题
     info "配置 Powerlevel10k 为默认主题"
     sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.zshrc"
 
     # 复制 p10k 配置文件（如果存在）
-    if [ -f "$SCRIPT_DIR/.p10k.zsh" ]; then
+    if [ -f "$ROOT_DIR/.p10k.zsh" ]; then
       info "使用本地 p10k 配置文件"
-      cp "$SCRIPT_DIR/.p10k.zsh" "$HOME/.p10k.zsh"
+      cp "$ROOT_DIR/.p10k.zsh" "$HOME/.p10k.zsh"
     else
       info "添加 p10k 自动配置提示到 .zshrc"
       if ! grep -q "# To customize prompt, run \`p10k configure\`" "$HOME/.zshrc"; then
@@ -298,7 +282,7 @@ install_zsh_plugins() {
       rm -rf "$AUTOSUG_DIR"
     fi
     info "从本地材料安装 zsh-autosuggestions 插件"
-    copy_library "$SCRIPT_DIR/libraries/zsh-autosuggestions" "$AUTOSUG_DIR"
+    copy_library "$ROOT_DIR/libraries/zsh-autosuggestions" "$AUTOSUG_DIR"
 
     # 安装 zsh-syntax-highlighting
     SYNTAX_DIR="$ZSH_CUSTOM_DIR/plugins/zsh-syntax-highlighting"
@@ -307,7 +291,7 @@ install_zsh_plugins() {
       rm -rf "$SYNTAX_DIR"
     fi
     info "从本地材料安装 zsh-syntax-highlighting 插件"
-    copy_library "$SCRIPT_DIR/libraries/zsh-syntax-highlighting" "$SYNTAX_DIR"
+    copy_library "$ROOT_DIR/libraries/zsh-syntax-highlighting" "$SYNTAX_DIR"
 
     # 更新 .zshrc 的插件配置
     info "配置 zsh 插件"
@@ -338,7 +322,7 @@ install_nerd_fonts() {
       info "安装 $FONT_NAME 字体"
       mkdir -p "$FONT_DIR"
 
-      cp "$SCRIPT_DIR/resources/$FONT_FILE" "$FONT_DIR/" || {
+      cp "$ROOT_DIR/resources/$FONT_FILE" "$FONT_DIR/" || {
         error "无法复制字体文件"
         return 1
       }
@@ -366,7 +350,7 @@ install_oh_my_tmux() {
     fi
 
     info "从本地材料安装 Oh My Tmux"
-    copy_library "$SCRIPT_DIR/libraries/oh-my-tmux" "$TMUX_DIR"
+    copy_library "$ROOT_DIR/libraries/oh-my-tmux" "$TMUX_DIR"
 
     # 创建配置链接
     info "创建 tmux 配置链接"
@@ -384,9 +368,9 @@ install_oh_my_tmux() {
     fi
 
     # 优先使用自定义配置，否则使用默认配置
-    if [ -f "$SCRIPT_DIR/.tmux.conf.local" ]; then
+    if [ -f "$ROOT_DIR/.tmux.conf.local" ]; then
       info "使用自定义 .tmux.conf.local 配置"
-      cp "$SCRIPT_DIR/.tmux.conf.local" "$HOME/.tmux.conf.local"
+      cp "$ROOT_DIR/.tmux.conf.local" "$HOME/.tmux.conf.local"
     else
       info "使用默认 .tmux.conf.local 配置"
       cp "$TMUX_DIR/.tmux.conf.local" "$HOME/.tmux.conf.local"

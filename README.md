@@ -2,7 +2,7 @@
 
 # oh-my-linux — Debian 系新机基础环境一键配置
 
-面向虚拟机与新装 Linux 机器的基础工具配置包：克隆仓库或解压离线包后执行一条命令，得到配置完毕的 **Zsh + Oh My Zsh + Powerlevel10k + 常用插件 + Tmux + Oh My Tmux** 终端环境；图形桌面机器可另行执行输入法脚本，得到 **fcitx5 + Rime + rime-ice 词库** 中文输入环境。
+面向虚拟机与新装 Linux 机器的基础工具配置包：克隆仓库或解压离线包后执行 `./run.sh install terminal`，得到配置完毕的 **Zsh + Oh My Zsh + Powerlevel10k + 常用插件 + Tmux + Oh My Tmux** 终端环境；图形桌面机器可执行 `./run.sh install im`，得到 **fcitx5 + Rime + rime-ice 词库** 中文输入环境。
 
 ## 支持范围
 
@@ -30,17 +30,19 @@
 
 ```text
 .
-├── install_zsh_tmux.sh        # zsh + tmux 终端环境安装（离线）
-├── install_fcitx5_rime.sh     # fcitx5 + Rime 输入法安装（仅图形桌面）
-├── run.sh                     # 维护脚本（update / create）
-├── lib/
-│   └── common.sh              # 公共函数库（日志、步骤进度、系统检查）
-├── libraries/                 # 5 个仓库（git submodules）
+├── run.sh                     # 统一入口（install / update / create）
+├── script/                    # 项目自身脚本
+│   ├── install-terminal.sh    # zsh + tmux 终端环境安装（离线）
+│   ├── install-im.sh          # fcitx5 + Rime 输入法安装（仅图形桌面）
+│   ├── maintain.sh            # 子模块更新与离线打包
+│   └── common.sh              # 公共函数（日志、步骤进度、系统检查）
+├── libraries/                 # 第三方仓库（5 个 git submodules）
 ├── resources/                 # 字体、主题、词库资源
 └── test/
+    ├── cli.sh                 # 入口与参数转发测试（本机运行，无需安装）
     ├── docker-test.sh         # Docker 多发行版测试矩阵（宿主机入口）
     ├── inside-container.sh    # 容器内安装与断言逻辑
-    └── lint.sh                # shellcheck 静态检查（容器内执行）
+    └── lint.sh                # shellcheck 静态检查（本机优先，Docker 回退）
 ```
 
 ## 🚀 使用方式
@@ -49,29 +51,36 @@
 
 ```bash
 git clone --recurse-submodules <本仓库地址> && cd ohmylinux
-./install_zsh_tmux.sh                # 终端环境（交互模式）
-./install_zsh_tmux.sh --unattended   # 终端环境（无人值守，适合批量部署）
-./install_fcitx5_rime.sh             # 输入法（仅图形桌面机器需要）
+./run.sh install terminal                # 终端环境（交互模式）
+./run.sh install terminal --unattended   # 终端环境（无人值守，适合批量部署）
+./run.sh install im                      # 输入法（仅图形桌面机器需要）
+./run.sh install im --force              # 通过 SSH 配置桌面机器，跳过图形会话检测
+./run.sh --help                          # 查看所有命令
+./run.sh install terminal --help         # 查看终端安装选项
 ```
 
 已克隆但缺少子模块时，先执行 `git submodule update --init --recursive`。
+
+所有安装与维护操作均通过 `run.sh` 进入，不再使用原来的根目录 `install_zsh_tmux.sh` / `install_fcitx5_rime.sh`。安装选项会原样传给对应脚本；可从任意工作目录使用 `run.sh` 的绝对路径调用。
 
 ### 方式二：离线包安装（目标机器无网络）
 
 1. 在有网络的机器上执行 `./run.sh create`，得到 `dist/oh-my-linux_YYYYMMDD.tar.gz`
 2. 拷贝至目标机器解压，进入目录执行上述安装命令
 
-离线包已内置 rime-ice 词库与 Oh My Zsh 安装脚本，安装过程不需要网络；唯一例外是 apt 依赖（`zsh`、`tmux`、`git`、`fontconfig`、fcitx5 相关包），完全断网的机器需预装依赖或配置离线 apt 源。
+离线包包含相同的 `run.sh` 与 `script/` 结构、第三方组件和本地资源；Oh My Zsh 直接使用内置模板生成配置，无需额外下载官方安装器。打包会优先复用本地 rime-ice 词库，缺少时尝试下载；若下载失败会告警，此时终端仍可离线安装，输入法安装则需要联网获取词库。
+
+apt 依赖（`zsh`、`tmux`、`git`、`fontconfig`、fcitx5 相关包）不包含在离线包中，完全断网的机器需预装依赖或配置离线 apt 源。
 
 ### 脚本行为说明
 
-`install_zsh_tmux.sh`：
+`./run.sh install terminal`：
 
 - 支持重入：中断后重新运行，从上次进度继续（进度记录于 `~/.oml_zsh_tmux_install_progress`）。
 - 覆盖安装前自动备份：`~/.zshrc`、`~/.oh-my-zsh`、`~/.tmux.conf` 均备份为 `*.bak_时间戳`。
 - `--unattended` 模式下所有确认自动采用默认值：覆盖旧安装（含备份）、设置 zsh 为默认 shell、不立即启动 zsh。
 
-`install_fcitx5_rime.sh`：
+`./run.sh install im`：
 
 - 通过 `XDG_CURRENT_DESKTOP` / `DISPLAY` 等变量检测图形会话，检测失败时直接退出且不做任何变更；SSH 配置带桌面的机器时使用 `--force` 跳过检测。
 - 输入法环境变量写入 `~/.config/environment.d/95-fcitx5.conf`（systemd 用户会话）与 `~/.xprofile`（X11 会话）。不再使用 `~/.pam_environment`——PAM 1.5 起已移除该机制，Ubuntu 24.04 上写入无效。
@@ -79,16 +88,17 @@ git clone --recurse-submodules <本仓库地址> && cd ohmylinux
 
 ## 🧪 测试
 
-全部测试在 Docker 容器内执行，不改动宿主机环境；宿主机仅需安装 Docker（验证于 Docker 29.6.0）。
+入口测试只检查命令分发、参数转发和跳过逻辑，不执行真实安装。静态检查优先使用本机 shellcheck，未安装时使用 Docker。实际安装测试全部在 Docker 容器内执行，不改动宿主机配置。
 
 ```bash
+./test/cli.sh                         # 快速入口回归，无需 Docker / 网络 / sudo
 ./test/lint.sh                        # shellcheck 静态检查
 ./test/docker-test.sh                 # 默认矩阵：ubuntu:22.04 / ubuntu:24.04 / debian:12
 ./test/docker-test.sh ubuntu:24.04    # 仅测试单个镜像
 ./test/docker-test.sh --full          # 追加 fcitx5 --force 完整安装断言（容器内需联网）
 ```
 
-测试内容：容器内创建普通用户 → 无人值守安装 → 逐项断言（组件落位、`.zshrc` 配置、字体注册、默认 shell、zsh/tmux 可启动、无 `.git` 残留）→ 验证 fcitx5 脚本在无图形会话下跳过 → 验证脚本可重复执行。日志输出至 `.tmp/test-logs/`。
+测试内容：入口测试覆盖帮助、错误参数、非当前目录调用、安装选项与退出码透传；容器测试创建普通用户 → 通过统一入口无人值守安装 → 逐项断言（组件落位、`.zshrc` 配置、字体注册、默认 shell、zsh/tmux 可启动、无 `.git` 残留）→ 验证 fcitx5 脚本在无图形会话下跳过 → 验证脚本可重复执行。日志输出至 `.tmp/test-logs/`。
 
 边界说明：容器内无法验证输入法的实际候选框行为与字体渲染效果，该部分需在带桌面的虚拟机中人工验收一次。
 

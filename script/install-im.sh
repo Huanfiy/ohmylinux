@@ -7,16 +7,16 @@
 # 说明：无图形会话（服务器/容器/SSH）时自动跳过安装，可用 --force 强制执行
 #
 # 用法：
-#   ./install_fcitx5_rime.sh                # 常规安装
-#   ./install_fcitx5_rime.sh --force        # 跳过图形会话检测强制安装
-#   SUDO_PASSWORD=xxx ./install_fcitx5_rime.sh   # 免交互提供 sudo 密码
+#   ./run.sh install im                # 常规安装
+#   ./run.sh install im --force        # 跳过图形会话检测强制安装
+#   SUDO_PASSWORD=xxx ./run.sh install im   # 免交互提供 sudo 密码
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# shellcheck source=lib/common.sh
-source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=script/common.sh
+source "$ROOT_DIR/script/common.sh"
 
 FORCE_INSTALL=0
 SUDO_PASSWORD="${SUDO_PASSWORD:-}"
@@ -28,10 +28,8 @@ THEME_DIR="${HOME_DIR}/.local/share/fcitx5/themes"
 THEME_NAME="Alpha-white"
 XPROFILE_FILE="${HOME_DIR}/.xprofile"
 ENVD_FILE="${HOME_DIR}/.config/environment.d/95-fcitx5.conf"
-TMP_DIR="$(mktemp -d)"
-RIME_ZIP_LOCAL="${SCRIPT_DIR}/resources/rime-ice-${OML_RIME_ICE_VERSION}.zip"
-RIME_ZIP="${TMP_DIR}/rime-ice.zip"
-RIME_UNZIP_DIR="${TMP_DIR}/rime-ice-src"
+TMP_DIR=""
+RIME_ZIP_LOCAL="${ROOT_DIR}/resources/rime-ice-${OML_RIME_ICE_VERSION}.zip"
 PACKAGES=(
   fcitx5
   fcitx5-chinese-addons
@@ -45,13 +43,15 @@ PACKAGES=(
 )
 
 cleanup() {
-  rm -rf "${TMP_DIR}"
+  if [[ -n "${TMP_DIR}" ]]; then
+    rm -rf "${TMP_DIR}"
+  fi
 }
 trap cleanup EXIT
 
 usage() {
   cat <<'EOF'
-用法: ./install_fcitx5_rime.sh [选项]
+用法: ./run.sh install im [选项]
 
 选项:
   -y, --unattended   无人值守模式（本脚本无交互确认，仅保持与其他脚本一致的入口）
@@ -291,7 +291,7 @@ install_rime_ice() {
 install_candidate_theme() {
   step_start "安装 ${THEME_NAME} 候选框主题"
 
-  local theme_zip="${SCRIPT_DIR}/resources/${THEME_NAME}.zip"
+  local theme_zip="${ROOT_DIR}/resources/${THEME_NAME}.zip"
   if [[ ! -f "${theme_zip}" ]]; then
     warn "未找到主题资源 ${theme_zip}，跳过主题安装"
     return 0
@@ -393,6 +393,9 @@ main() {
 
   check_environment
   require_sudo
+  TMP_DIR="$(mktemp -d)"
+  RIME_ZIP="${TMP_DIR}/rime-ice.zip"
+  RIME_UNZIP_DIR="${TMP_DIR}/rime-ice-src"
   install_packages
   configure_im_framework
   write_input_method_env

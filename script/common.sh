@@ -15,7 +15,7 @@ if [ -n "${OML_COMMON_LOADED:-}" ]; then
 fi
 OML_COMMON_LOADED=1
 
-# rime-ice 词库版本（install_fcitx5_rime.sh 安装与 run.sh 打包共用同一处定义）
+# rime-ice 词库版本（输入法安装与离线打包共用同一处定义）
 OML_RIME_ICE_VERSION="2024.05.21"
 OML_RIME_ICE_URL="https://github.com/iDvel/rime-ice/archive/refs/tags/${OML_RIME_ICE_VERSION}.zip"
 

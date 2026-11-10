@@ -4,10 +4,10 @@
 #
 # 流程：
 #   1. 准备环境：安装 sudo，创建带免密 sudo 的普通用户 tester（模拟真机场景）
-#   2. 以 tester 身份执行 install_zsh_tmux.sh --unattended
+#   2. 以 tester 身份执行 run.sh install terminal --unattended
 #   3. 逐项断言安装结果
-#   4. 验证 install_fcitx5_rime.sh 在无图形会话下正确跳过
-#   5. 验证 install_zsh_tmux.sh 可重复执行（重入）
+#   4. 验证 run.sh install im 在无图形会话下正确跳过
+#   5. 验证 run.sh install terminal 可重复执行（重入）
 #   6. （可选 OML_TEST_FCITX5=1）执行 fcitx5 --force 完整安装并断言
 
 set -euo pipefail
@@ -45,8 +45,8 @@ fi
 useradd -m -s /bin/bash "$TEST_USER"
 echo "$TEST_USER ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$TEST_USER"
 
-echo "==> [2/6] 以 $TEST_USER 身份执行 install_zsh_tmux.sh --unattended"
-as_tester "bash $REPO/install_zsh_tmux.sh --unattended"
+echo "==> [2/6] 以 $TEST_USER 身份执行 run.sh install terminal --unattended"
+as_tester "bash $REPO/run.sh install terminal --unattended"
 
 echo "==> [3/6] 断言 zsh/tmux 安装结果"
 TESTER_HOME="/home/$TEST_USER"
@@ -74,7 +74,7 @@ check "tmux 配置可加载" as_tester "tmux new-session -d -s smoke && tmux kil
 echo "==> [4/6] 断言 fcitx5 脚本在无图形会话下跳过"
 FCITX5_LOG="/tmp/fcitx5_skip.log"
 FCITX5_RC=0
-as_tester "bash $REPO/install_fcitx5_rime.sh --unattended" >"$FCITX5_LOG" 2>&1 || FCITX5_RC=$?
+as_tester "bash $REPO/run.sh install im --unattended" >"$FCITX5_LOG" 2>&1 || FCITX5_RC=$?
 if [ "$FCITX5_RC" -ne 0 ]; then
   cat "$FCITX5_LOG"
 fi
@@ -82,14 +82,14 @@ check "无图形会话时以退出码 0 跳过" test "$FCITX5_RC" -eq 0
 check "输出包含跳过提示" grep -q "跳过 fcitx5" "$FCITX5_LOG"
 check "fcitx5 未被安装" bash -c '! command -v fcitx5'
 
-echo "==> [5/6] 断言 install_zsh_tmux.sh 可重复执行"
-as_tester "bash $REPO/install_zsh_tmux.sh --unattended"
+echo "==> [5/6] 断言 run.sh install terminal 可重复执行"
+as_tester "bash $REPO/run.sh install terminal --unattended"
 check "重复执行后 ~/.oh-my-zsh 仍存在" test -d "$TESTER_HOME/.oh-my-zsh"
 check "重复执行生成了备份目录" bash -c "ls -d $TESTER_HOME/.oh-my-zsh.bak_* >/dev/null"
 
 if [ "${OML_TEST_FCITX5:-0}" = "1" ]; then
   echo "==> [6/6] fcitx5 --force 完整安装测试"
-  as_tester "bash $REPO/install_fcitx5_rime.sh --unattended --force"
+  as_tester "bash $REPO/run.sh install im --unattended --force"
   check "fcitx5 已安装" as_tester "command -v fcitx5"
   check "rime-ice 词库已就位" test -f "$TESTER_HOME/.local/share/fcitx5/rime/default.yaml"
   check "Alpha-white 主题已安装" test -f "$TESTER_HOME/.local/share/fcitx5/themes/Alpha-white/theme.conf"
